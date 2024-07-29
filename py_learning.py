@@ -214,8 +214,12 @@
 # 12、matplotlib的常用方法
 # import matplotlib as mpl
 # import matplotlib.pyplot as plt
+# import datetime as dt
+# import numpy as np
 # plt.rcParams["font.sans-serif"] = "SimHei" # 设置rc参数显示中文标题
 # plt.rcParams["axes.unicode_minus"] = "SimHei" # 设置正常显示字符，用到这条语句是因为坐标轴包含负值，在调用上一条语句后不使用该语句则负号会乱码
+# x_date = [dt.datetime.strptime(d, "%Y-%m-%d") for d in df.date] # 如果x轴是日期时间轴，就采用该种处理方式
+# x = np.linspace() # 如果x轴没有指定，就采用该种处理方式
 # # 一个画布绘制多个图表
 # plt.figure() # 对画布进行分区
 # plt.suptitle() # 画布标题
@@ -235,6 +239,11 @@
 # plt.plot() # 绘制线型图
 # plt.subplot() # 指定所绘第四个图表的区域
 # plt.hist() # 绘制直方图
+# plt.show()
+# # 一个图表绘制多条线
+# fig, ax = plt.subplots() # 创建图实例
+# ax.plot(y1, label='index1')
+# ax.plot(y2, label='index2')
 # plt.show()
 
 
