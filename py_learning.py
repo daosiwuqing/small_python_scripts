@@ -214,36 +214,88 @@
 # 12、matplotlib的常用方法
 # import matplotlib as mpl
 # import matplotlib.pyplot as plt
+# import matplotlib.font_manager as fm
 # import datetime as dt
-# import numpy as np
-# plt.rcParams["font.sans-serif"] = "SimHei" # 设置rc参数显示中文标题
-# plt.rcParams["axes.unicode_minus"] = "SimHei" # 设置正常显示字符，用到这条语句是因为坐标轴包含负值，在调用上一条语句后不使用该语句则负号会乱码
-# x_date = [dt.datetime.strptime(d, "%Y-%m-%d") for d in df.date] # 如果x轴是日期时间轴，就采用该种处理方式
-# x = np.linspace() # 如果x轴没有指定，就采用该种处理方式
-# # 一个画布绘制多个图表
-# plt.figure() # 对画布进行分区
-# plt.suptitle() # 画布标题
-# plt.subplot() # 指定所绘第一个图表的区域
-# plt.title() # 添加图表标题
-# plt.legend() # 添加图例
-# plt.yscale('logit') # 选择线性轴刻度、对数轴刻度和logit轴刻度
-# plt.bar() # 绘制条形图
-# plt.text() # 用于在图表上的任意位置添加文本
-# plt.xlabel() # 添加x轴标签
-# plt.ylabel() # 添加y轴标签
-# plt.ylim() # 设置y轴数值限度
-# plt.axis() # 设置x、y轴的刻度
-# plt.subplot() # 指定所绘第二个图表的区域
-# plt.scatter() # 绘制散点图
-# plt.subplot() # 指定所绘第三个图表的区域
-# plt.plot() # 绘制线型图
-# plt.subplot() # 指定所绘第四个图表的区域
-# plt.hist() # 绘制直方图
-# plt.show()
-# # 一个图表绘制多条线
-# fig, ax = plt.subplots() # 创建图实例
-# ax.plot(y1, label='index1')
-# ax.plot(y2, label='index2')
+
+# # 1)matplotlib中使用某个字体文件
+# # 1.1)获取字体文件真正的名称
+# # font = fm.FontProperties(fname="C:/Users/29433/AppData/Local/Microsoft/Windows/Fonts/FZHTJW.TTF")
+# # print(font.get_name())
+# # 1.2)设置全局字体
+# fm.fontManager.addfont('C:/Users/29433/AppData/Local/Microsoft/Windows/Fonts/FZHTJW.TTF')
+# mpl.rcParams['font.sans-serif'] = 'FZHei-B01S' # 此处需要用字体文件真正的名称
+# # 1.3)用fontproperties参数的一类方法
+# font_properties = fm.FontProperties(family='FZHei-B01S', size=16, stretch=0) # 用来设置字体的属性
+# # 1.4)用prop参数和fontdict参数的一类方法
+# fontdict = {'family':'FZHei-B01S', 'size':6}
+
+# mpl.rcParams["axes.unicode_minus"] = False # 解决负号无法显示的问题
+
+# df1 = pd.read_excel("D:\\LearningAndWorking\\工作\\日常工作\\专题研究\\月度\\持仓龙虎榜分析\\M_result.xlsx", sheet_name="前20名合计")
+# # 创建图形和主y轴
+# fig, axs = plt.subplots(2, 2, figsize=(13, 7))
+# # x_date = [dt.datetime.strptime(d, "%Y/%m/%d") for d in df1.date]
+# x_date = df1.date
+
+# ax1_1 = axs[0, 0]
+# # 创建左侧的第一个y轴
+# y1 = df1["long_volume"]
+# ax1_1.set_title(label='图标题', fontproperties=font_properties) # 添加图表标题
+# ax1_1.plot(x_date, y1, color=(75/255, 115/255, 165/255))
+# ax1_1.set_ylabel(ylabel="持多仓", color=(75/255, 115/255, 165/255), fontdict=fontdict) # 设置y轴标签及其颜色
+# ax1_1.tick_params(axis='y', colors=(75/255, 115/255, 165/255)) # 设置坐标轴的刻度线及刻度值的颜色
+# # ax1_1.set_ylim([0, 8000]) # 设置y轴的刻度范围
+# # ax1_1.set_yticklabels(labels=[0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000], fontdict=fontdict) # 设置y轴刻度值的标签和刻度值的字体
+# ax1_1.spines['top'].set_color("none") # 调整边框线的颜色以及是否设置边框线，第一个可选参数：top、bottom、left、right；第二个可选参数：none或其它颜色参数
+# # ax1、ax2、ax3和ax4的边框线会有重叠，轴都为黑色的时候不会影响，但如果各轴的颜色不同，就需要把影响其它轴的边框线设为无颜色
+# ax1_1.spines['left'].set_color(c=(75/255, 115/255, 165/255))
+# ax1_1.spines['right'].set_color("none")
+# ax1_1.legend(['持多仓'], fontsize=6, labelcolor=(75/255, 115/255, 165/255), frameon=False, bbox_to_anchor=(0.25,1.05)) # 设置图例的一些参数，其中bbox_to_anchor(x,y)用来控制图例的位置，x表示图例在x轴方向上的位置，y表示图例在y轴方向上的位置，范围是0到1，小于0或大于1可以让图例位于坐标轴之外。
+
+# # 创建左侧的第二个y轴
+# ax1_2 = ax1_1.twinx()
+# # 调整ax1_2的位置，为了不与ax1_1重叠
+# ax1_2.spines['left'].set_position(('outward', 30)) # 将y轴挪到x轴的50刻度处
+# ax1_2.yaxis.set_ticks_position('left') # 将y轴的刻度值写y轴的左面
+# ax1_2.yaxis.set_label_position('left') # 将y轴的标签值写y轴的左面
+# y2 = df1["short_volume"]
+# ax1_2.plot(x_date, y2, color=(165/255, 142/255, 90/255))
+# ax1_2.set_ylabel(ylabel='持空仓', color=(165/255, 142/255, 90/255), fontdict=fontdict)
+# ax1_2.tick_params(axis='y', colors=(165/255, 142/255, 90/255))
+# ax1_2.spines['top'].set_color("none")
+# ax1_2.spines['left'].set_color(c=(165/255, 142/255, 90/255))
+# ax1_2.spines['right'].set_color("none")
+# ax1_2.legend(['持空仓'], fontsize=6, labelcolor=(165/255, 142/255, 90/255), frameon=False, bbox_to_anchor=(0.25,0.98))
+
+# # 创建右侧的第一个y轴
+# ax1_3 = ax1_1.twinx()
+# y3 = df1["open_interest"]
+# ax1_3.plot(x_date, y3, color=(90/255, 130/255, 140/255))
+# ax1_3.set_ylabel(ylabel="持仓量",  color=(90/255, 130/255, 140/255), fontdict=fontdict)
+# ax1_3.tick_params(axis='y', colors=(90/255, 130/255, 140/255))
+# ax1_3.spines['top'].set_color("none")
+# ax1_3.spines['right'].set_color(c=(90/255, 130/255, 140/255))
+# ax1_3.spines['left'].set_color("none")
+# ax1_3.legend(['持仓量'], fontsize=6, labelcolor=(90/255, 130/255, 140/255), frameon=False, bbox_to_anchor=(0.25,0.91))
+
+# # 创建右侧的第二个y轴
+# ax1_4 = ax1_1.twinx()
+# # 调整ax4的位置，为了不与ax3重叠
+# ax1_4.spines['right'].set_position(('outward', 30))
+# ax1_4.yaxis.set_ticks_position('right') # 将y轴的刻度值写y轴的右面
+# ax1_4.yaxis.set_label_position('right') # 将y轴的标签值写y轴的右面
+# y4 = df1["long/short"]
+# ax1_4.plot(x_date, y4, color=(166/255, 166/255, 166/255))
+# ax1_4.set_ylabel(ylabel='多/空', color=(166/255, 166/255, 166/255), fontdict=fontdict)
+# ax1_4.tick_params(axis='y', colors=(166/255, 166/255, 166/255))
+# ax1_4.spines['top'].set_color("none")
+# ax1_4.spines['right'].set_color(c=(166/255, 166/255, 166/255))
+# ax1_4.spines['left'].set_color("none")
+# ax1_4.legend(['多/空'], fontsize=6, labelcolor=(166/255, 166/255, 166/255), frameon=False, bbox_to_anchor=(0.25,0.84))
+
+# # 调整图的边界，为了有更多的空白来展示所有的y轴
+# # fig.subplots_adjust(left=0.2, right=0.8)
+
 # plt.show()
 
 
