@@ -63,9 +63,14 @@
 
 
 # 用滚动函数滚动计算df中的数据
+# #一，只滚动计算单列
 # def func1(self, x, y):
 #     return (self.mean() - self.std()) * x / y
 # df1.col_name2 = df1.col_name1.rolling(window=period1).apply(func=func1, args=(10, 5)) # 常用来根据时间序列数据计算指标
+# #二、滚动计算多列
+# def func1(df1, window1):
+    # return value1, value2
+# df2[["new_col_name1", "new_col_name2"]] = [func1(df, window1) for df in df2.rolling(window1)]
 
 
 # 用重采样函数处理df中的数据
