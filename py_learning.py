@@ -304,3 +304,26 @@
 # plt.show()
 
 
+
+# 13、parquet格式文件的常用方法
+# import pandas as pd
+# import numpy as np
+# import pyarrow as pa # 直接用pandas操作parquet格式文件时就无需引用
+# import pyarrow.parquet as pq # 直接用pandas操作parquet格式文件时就无需引用
+
+# path1 = "C:\\Users\\Admin\\Desktop\\"
+# df1 = pd.read_csv(path1 + "varity20241204.csv")
+
+# # 将dataframe数据类型转化为arrow数据类型并存储为parquet格式文件
+# arrow1 = pa.Table.from_pandas(df1)
+# pq.write_table(arrow1, path1 + "test.parquet", compression='zstd', compression_level=22)
+
+# # 读取parquet格式文件并将arrow数据类型转化为dataframe数据类型
+# arrow2 = pq.read_table(path1 + "20241202.parquet")
+# df2 = arrow2.to_pandas()
+
+# # 直接用pandas操作parquet格式文件
+# df3 = pd.read_parquet(path1 + "20241202.parquet") # 读取parquet格式文件
+# df3.to_parquet(path1 + "test1.parquet", engine="pyarrow", compression="zstd", compression_level=22) # 储存为parquet格式文件
+
+
