@@ -5,49 +5,116 @@
 
 # 该类的作用：封装在指数回测计算中常用的函数
 import pandas as pd
-import re
+import re, bisect
 class Cal_index1(object):
     editor = "zhaobo"
     
 
     def __init__(self):
-        self.log1 = "2024/01/23对包进行了修改"
+        self.log1 = "2026/03/17对包进行了修改"
     
 
-    def cal_date_spread(code1, date1): # 计算date1离合约到期日差几个月（不考虑天数），code1是合约代码，date1是格式为"2012-06-30"的日期字符串
-        # 确定合约到期日的年份
-        if re.findall(r"(\d{3})$", code1)[0][0] == date1[3:4]:
-            year1 = int(date1[0:4])
-        elif (re.findall(r"(\d{3})$", code1)[0][0] == "0") & (date1[3:4] == "9"):
-            year1 = int(date1[0:4]) + 1
-        else:
-            year1 = int(date1[0:3] + re.findall(r"(\d{3})$", code1)[0][0])
-        # 确定合约到期日的月份
-        month1 = int(re.findall(r"(\d{2})$", code1)[0])
-        # 确定合约到期日的日期
-        day1 = 15 # 此处为简化处理，假定合约都是在15日交割
+    def get_maturity_date(instrument_id, date_str, maturity_day=15, max_years_ahead=3):
+        '''
+        功能：从instrument_id中提取出合约到期日。        
 
-        year2 = int(date1[0:4]) # 确定date1的年份
-        month2 = int(date1[5:7]) # 确定date1的月份
-        day2 = int(date1[8:10]) # 确定date1的日期
-
-        years_spread = year1 - year2
-        months_spread = year1*12 + month1 - (year2*12 + month2)
-        days_spread = year1*365 + month1*30 + day1 - (year2*365 + month2*30 + day2)
+        参数：
+            instrument_id(str): 合约代码
+            date_str(str): 交易日字符串(ISO格式'YYYY-MM-DD')
+            maturity_day(int): 到期日日期(默认15)
+            max_years_ahead(int): 允许的最大未来年限(默认3年)
         
-        return (years_spread, months_spread, days_spread)
-    
-    
-    def compare_codes_maturity(code1, code2, date1): # 比较两个合约哪个到期日更远，如果code1比code2远返回1，相等返回2，近返回0，date1是进行比较的时点
-        a = Cal_index1.cal_date_spread(code1, date1)
-        b = Cal_index1.cal_date_spread(code2, date1)
-        if (a[2]) > (b[2]):
-            return (1)
-        elif (a[2]) == (b[2]):
-            return (2)
-        else:
-            return (0)
-    
+        返回：
+            str: 合约到期日(ISO格式'YYYY-MM-DD')
+        '''
+        # 1、取合约代码数字部分，倒数第3位是年份个位，最后2位是月份
+        match = re.search(r'(\d{3})$', instrument_id)
+        num_part = match.group(1)
+        y_digit = int(num_part[-3]) # 年份个位
+        month = int(num_part[-2:]) # 月份
+
+        # 2、解析当前日期
+        current_date = dt.date.fromisoformat(date_str)
+        current_year = current_date.year
+        
+        # 3、在有限的时间窗口内寻找最佳年份
+        for offset in range(max_years_ahead + 1):
+            candidate_year = current_year + offset
+            
+            # 核心匹配逻辑：年份个位必须一致
+            if candidate_year % 10 == y_digit:
+                # 构造日期，因maturity_day<=28，而每月最少28天，故date()构造函数永远不会报错
+                cand_date = dt.date(candidate_year, month, maturity_day)
+                
+                # 必须是未来或当天
+                if cand_date >= current_date:
+                    return cand_date.isoformat()
+        
+        # 如果循环结束都没返回，说明在指定年限内没有有效合约
+        raise ValueError(f'合约{instrument_id}无有效到期日：在{max_years_ahead}年内未找到匹配的未来日期。')
+
+
+    def cal_date_spread(current_date, maturity_date, trading_calendar):
+        '''
+        功能：计算当前日期距离合约到期日还有几个月（不考虑天数），并计算当月已经过了多少个交易日（包含当日）以及还剩多少个交易日（包含当日）。
+        
+        参数:
+            current_date(datetime.date): 当前交易日
+            maturity_date(datetime.date): 合约到期日
+            trading_calendar(list): 已按升序排列的交易日列表（包含datetime.date对象）
+        
+        返回:
+            dict: 包含剩余月数、当月已过/剩余交易日数等信息
+        '''
+        
+        # 基础校验
+        if not trading_calendar:
+            raise ValueError("交易日序列不能为空")
+        
+        # 使用bisect_left进行二分查找，时间复杂度O(log N)，即使列表有10万条数据也能瞬间定位
+        idx = bisect.bisect_left(trading_calendar, current_date)
+        
+        # 校验找到的索引是否有效，且确实匹配当前日期
+        if idx >= len(trading_calendar) or trading_calendar[idx] != current_date:
+            raise ValueError(f"当前日期{current_date}不在交易日序列中，或序列已结束。")
+        
+        current_year = current_date.year
+        current_month = current_date.month
+
+        # 1、计算剩余月数
+        # 逻辑：(目标年 - 当前年) * 12 + (目标月 - 当前月)，忽略具体日期，跨月即算1个月
+        months_remaining = (maturity_date.year - current_year) * 12 + \
+                        (maturity_date.month - current_month)
+        if months_remaining < 0:
+            months_remaining = 0 # 已过期处理
+
+        # 2、双向遍历统计当月交易日
+        days_passed = 0
+        days_left = 0
+        # 2.1、向前统计(已过交易日，含当天)，从idx开始倒序遍历，直到月份改变
+        for i in range(idx, -1, -1):
+            t_date = trading_calendar[i]
+            if t_date.year == current_year and t_date.month == current_month:
+                days_passed += 1
+            else:
+                break   
+        # 2.2、向后统计(剩余交易日，含当天)，从idx开始正序遍历，直到月份改变
+        for i in range(idx, len(trading_calendar)):
+            t_date = trading_calendar[i]
+            if t_date.year == current_year and t_date.month == current_month:
+                days_left += 1
+            else:
+                break
+
+        return {
+            "current_date": current_date.isoformat(),
+            "maturity_date": maturity_date.isoformat(),
+            "months_remaining": months_remaining,
+            "trading_days_passed_this_month": days_passed, # 当月已过 (含今天)
+            "trading_days_left_this_month": days_left, # 当月剩余 (含今天)
+            "total_trading_days_this_month": days_passed + days_left - 1 # 当月总交易日
+            }
+   
     
     def add_contract_infor(data): # 为入选品种添加合约规模、保证金比例、手续费等合约基本数据，data是dataframe类型的数据
         scale = pd.Series({"A":10, "AG":15, "AL":5, "AP":10, "AU":1000, "B":10, "BB":500, "BC":5, "BU":10, "C":10, 
@@ -71,7 +138,7 @@ class Cal_index1(object):
 
 
     def get_weight(index, year_month): # 获取某个指数某个日期的权重配比，index如"综合指数"，year_month如"2020-06"
-        weights = pd.read_excel(r"D:\LearningAndWorking\VS\data\南华指数系列历史权重(2023).xlsx", sheet_name=index).iloc[:-1,:]
+        weights = pd.read_excel('D:\\LearningAndWorking\\VSCode\\data\\南华指数系列历史权重(2025).xlsx', sheet_name=index).iloc[:-1,:]
         regex = year_month + "|代码"
         weight1 = weights.filter(regex=regex, axis=1).set_index("代码")
         weight2 = weight1[~weight1.isin([0])].dropna().iloc[:,0]
