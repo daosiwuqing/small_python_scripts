@@ -83,7 +83,7 @@ class Cal_index1(object):
         '''
     
         # 基础校验
-        if not trading_calendar:
+        if trading_calendar.empty:
             raise ValueError('交易日序列不能为空')
         
         # 确保输入是pd.Timestamp
