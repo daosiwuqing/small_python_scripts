@@ -5,101 +5,127 @@
 
 # 该类的作用：封装在指数回测计算中常用的函数
 import pandas as pd
-import datetime as dt
 import re, bisect
 class Cal_index1(object):
-    editor = "zhaobo"
+    editor = 'zhaobo'
     
 
     def __init__(self):
-        self.log1 = "2026/03/17对包进行了修改"
+        self.log = '2026/03/17对包进行了修改'
     
 
-    def get_maturity_date(instrument_id, date_str, maturity_day=15, max_years_ahead=3):
+    def get_maturity_date(instrument_id, now_date, maturity_day=15, max_years_ahead=3):
         '''
-        功能：从instrument_id中提取出合约到期日。        
+        功能：从instrument_id中提取出合约到期日。
 
         参数：
-            instrument_id(str): 合约代码
-            date_str(str): 交易日字符串(ISO格式'YYYY-MM-DD')
-            maturity_day(int): 到期日日期(默认15)
-            max_years_ahead(int): 允许的最大未来年限(默认3年)
-        
+            instrument_id(str): 合约代码，例如'IF2309'
+            now_date(pd.Timestamp): 交易日
+            maturity_day(int): 到期日日期（默认15）
+            max_years_ahead(int): 允许的最大未来年限（默认3年）
+
         返回：
-            str: 合约到期日(ISO格式'YYYY-MM-DD')
+            pd.Timestamp: 合约到期日
         '''
-        # 1、取合约代码数字部分，倒数第3位是年份个位，最后2位是月份
+        # 1、提取合约代码中的年份个位和月份
         match = re.search(r'(\d{3})$', instrument_id)
+        if not match:
+            raise ValueError(f'合约代码{instrument_id}格式错误，未找到末尾3位数字。')
+        
         num_part = match.group(1)
         y_digit = int(num_part[-3]) # 年份个位
         month = int(num_part[-2:]) # 月份
 
-        # 2、解析当前日期
-        current_date = dt.date.fromisoformat(date_str)
+        if not (1 <= month <= 12):
+            raise ValueError(f'合约代码{instrument_id}中月份{month}无效。')
+
+        # 确保输入是Timestamp
+        if not isinstance(now_date, pd.Timestamp):
+            raise TypeError('now_date必须是pd.Timestamp类型。')
+
+        current_date = now_date
         current_year = current_date.year
-        
-        # 3、在有限的时间窗口内寻找最佳年份
+
+        # 2、在有限的时间窗口内寻找最佳年份
         for offset in range(max_years_ahead + 1):
             candidate_year = current_year + offset
-            
+
             # 核心匹配逻辑：年份个位必须一致
             if candidate_year % 10 == y_digit:
-                # 构造日期，因maturity_day<=28，而每月最少28天，故date()构造函数永远不会报错
-                cand_date = dt.date(candidate_year, month, maturity_day)
-                
+                try:
+                    # 构造候选到期日
+                    cand_date = pd.Timestamp(year=candidate_year, month=month, day=maturity_day)
+                except Exception as e:
+                    # 如果日期非法（如2月30日），跳过
+                    continue
+
                 # 必须是未来或当天
                 if cand_date >= current_date:
-                    return cand_date.isoformat()
-        
+                    return cand_date
+
         # 如果循环结束都没返回，说明在指定年限内没有有效合约
-        raise ValueError(f'合约{instrument_id}无有效到期日：在{max_years_ahead}年内未找到匹配的未来日期。')
+        raise ValueError(
+            f'合约{instrument_id}无有效到期日：在{max_years_ahead}年内未找到匹配的未来日期。'
+        )
 
 
     def cal_date_spread(current_date, maturity_date, trading_calendar):
         '''
-        功能：计算当前日期距离合约到期日还有几个月（不考虑天数），并计算当月已经过了多少个交易日（包含当日）以及还剩多少个交易日（包含当日）。
+        功能：计算当前日期距离合约到期日还有几个月，并计算当月已经过了多少个交易日以及还剩多少个交易日。
         
         参数:
-            current_date(datetime.date): 当前交易日
-            maturity_date(datetime.date): 合约到期日
-            trading_calendar(list): 已按升序排列的交易日列表（包含datetime.date对象）
+            current_date(pd.Timestamp): 当前交易日
+            maturity_date(pd.Timestamp): 合约到期日
+            trading_calendar(list): 已按升序排列的交易日列表（包含pd.Timestamp对象）
         
         返回:
             dict: 包含剩余月数、当月已过/剩余交易日数等信息
         '''
-        
+    
         # 基础校验
         if not trading_calendar:
-            raise ValueError("交易日序列不能为空")
+            raise ValueError('交易日序列不能为空')
         
-        # 使用bisect_left进行二分查找，时间复杂度O(log N)，即使列表有10万条数据也能瞬间定位
+        # 确保输入是pd.Timestamp
+        if not isinstance(current_date, pd.Timestamp):
+            raise TypeError('current_date必须是pd.Timestamp类型')
+        if not isinstance(maturity_date, pd.Timestamp):
+            raise TypeError('maturity_date必须是pd.Timestamp类型')
+        
+        # 校验列表中元素类型（可选，为了健壮性）
+        if not isinstance(trading_calendar[0], pd.Timestamp):
+            raise TypeError('trading_calendar列表中的元素必须是pd.Timestamp类型')
+
+        # 使用bisect_left进行二分查找，定位当前日期在列表中的索引
         idx = bisect.bisect_left(trading_calendar, current_date)
         
         # 校验找到的索引是否有效，且确实匹配当前日期
         if idx >= len(trading_calendar) or trading_calendar[idx] != current_date:
-            raise ValueError(f"当前日期{current_date}不在交易日序列中，或序列已结束。")
+            raise ValueError(f'当前日期{current_date}不在交易日序列中，或序列已结束。')
         
         current_year = current_date.year
         current_month = current_date.month
 
         # 1、计算剩余月数
-        # 逻辑：(目标年 - 当前年) * 12 + (目标月 - 当前月)，忽略具体日期，跨月即算1个月
+        # 逻辑：(目标年 - 当前年) * 12 + (目标月 - 当前月)，忽略具体日期
         months_remaining = (maturity_date.year - current_year) * 12 + \
                         (maturity_date.month - current_month)
         if months_remaining < 0:
-            months_remaining = 0 # 已过期处理
+            months_remaining = 0
 
         # 2、双向遍历统计当月交易日
         days_passed = 0
         days_left = 0
-        # 2.1、向前统计(已过交易日，含当天)，从idx开始倒序遍历，直到月份改变
+        # 2.1、向前统计(已过交易日，含当天)，从idx开始倒序遍历，直到月份改变或列表开头
         for i in range(idx, -1, -1):
             t_date = trading_calendar[i]
+            # pd.Timestamp支持直接访问.year和.month
             if t_date.year == current_year and t_date.month == current_month:
                 days_passed += 1
             else:
-                break   
-        # 2.2、向后统计(剩余交易日，含当天)，从idx开始正序遍历，直到月份改变
+                break
+        
+        # 2.2、向后统计(剩余交易日，含当天)，从idx开始正序遍历，直到月份改变或列表结尾
         for i in range(idx, len(trading_calendar)):
             t_date = trading_calendar[i]
             if t_date.year == current_year and t_date.month == current_month:
@@ -107,14 +133,15 @@ class Cal_index1(object):
             else:
                 break
 
+        # 构造返回字典
         return {
-            "current_date": current_date.isoformat(),
-            "maturity_date": maturity_date.isoformat(),
-            "months_remaining": months_remaining,
-            "trading_days_passed_this_month": days_passed, # 当月已过 (含今天)
-            "trading_days_left_this_month": days_left, # 当月剩余 (含今天)
-            "total_trading_days_this_month": days_passed + days_left - 1 # 当月总交易日
-            }
+            'current_date': current_date,
+            'maturity_date': maturity_date,
+            'months_remaining': months_remaining,
+            'trading_days_passed_this_month': days_passed, 
+            'trading_days_left_this_month': days_left, 
+            'total_trading_days_this_month': days_passed + days_left - 1 
+        }
    
     
     def add_contract_infor(data): # 为入选品种添加合约规模、保证金比例、手续费等合约基本数据，data是dataframe类型的数据
