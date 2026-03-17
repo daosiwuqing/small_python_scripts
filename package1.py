@@ -5,6 +5,7 @@
 
 # 该类的作用：封装在指数回测计算中常用的函数
 import pandas as pd
+import datetime as dt
 import re, bisect
 class Cal_index1(object):
     editor = "zhaobo"
